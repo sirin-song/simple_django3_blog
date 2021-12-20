@@ -1,0 +1,16 @@
+{% extends 'blog/base_template.html' %}
+
+{% block content %}
+
+            {% for blog in blogs %}
+            <div class="border border-success bg-light p-2">
+                <h2>{{ blog.title }}</h2>
+                <h5>{{ blog.date }}</h5>
+                <h5>Author: {{ blog.author.first_name }} {{ blog.author.last_name }}
+                <br>
+                <p>{{ blog.formatted_markdown|safe }}</p>
+            </div>
+            <br>
+            {% endfor %}
+
+{% endblock %}
