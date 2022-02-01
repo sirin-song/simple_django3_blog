@@ -1,8 +1,18 @@
-<head>
+{% extends 'blog/base_template.html' %}
 
-</head>
+{% block content %}
 
-<body>
-    <h3>Activation link sent! Please check your console or mail (temporalily you'll get your activation link right here:</h3>
-    <p>{{ message }}</a></p>
-</body>
+<div class="container">
+	<div class="row">
+		<div class="col-md card mb-4  mt-3 left  top">
+			<div class="card-body">
+
+	<p>Activation link sent! Please check your mail address entered on registration.</p>
+	<p>If you don't see activation message from Bard's Lair, check your Spam folder.</p>
+
+			</div>
+		</div>
+	</div>
+</div>
+	
+{% endblock %}

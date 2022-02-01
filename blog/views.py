@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404, HttpResponseRedirect
 from django.contrib.sites.shortcuts import get_current_site
-from django.utils.encoding import force_text
+from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from .tokens import account_activation_token
@@ -12,11 +12,47 @@ from .forms import PostForm, SignUpForm
 from django.contrib.auth import login, logout, authenticate
 from django.core.mail import send_mail
 from django.contrib.auth.models import User
-#from django.contrib.auth.forms import UserCreationForm
+from django.views.generic.list import ListView
+from django.views.generic.detail import DetailView
+from .forms import CommentForm
+from django.utils.text import slugify
 
 currentdate = date.today()
 currentdate += timedelta(days=1)
 blogs_definition = ''
+
+class BlogList(ListView):
+    queryset = Blog.objects.filter(status=1).order_by('-date').select_related('author')
+    template_name = 'blog/all_blogs.html'
+    paginate_by = 5
+    
+class BlogDetail(DetailView):
+    model = Blog
+    template_name = 'blog/blog_detail.html'
+
+def blog_detail(request, slug):
+    template_name = 'blog/blog_detail.html'
+    blog = get_object_or_404(Blog, slug=slug)
+    comments = blog.comments.filter(active=True)
+    new_comment = None
+    # Comment posted
+    if request.method == 'POST':
+        comment_form = CommentForm(data=request.POST)
+        if comment_form.is_valid():
+
+            # Create Comment object but don't save to database yet
+            new_comment = comment_form.save(commit=False)
+            # Assign the current post to the comment
+            new_comment.blog = blog
+            # Save the comment to the database
+            new_comment.save()
+    else:
+        comment_form = CommentForm()
+
+    return render(request, template_name, {'blog': blog,
+                                           'comments': comments,
+                                           'new_comment': new_comment,
+                                           'comment_form': comment_form})
 
 def all_blogs(request):
     blogs_definition = 'All Entries'
@@ -44,50 +80,33 @@ def new_entry(request):
         if form.is_valid():
             post = form.save(commit=False)
             post.author = request.user
-            post.published_date = timezone.now()
             post.save()
-            return redirect('all_blogs')
+            return redirect('home')
     else:
         form = PostForm()
     return render(request, 'blog/post_edit.html', {'form': form, 'definition':blogs_definition})
 
-def signup_view(request):
-    form = SignUpForm(request.POST)
-    if form.is_valid():
-        user = form.save()
-        user.refresh_from_db()
-        user.first_name = form.cleaned_data.get('first_name')
-        user.last_name = form.cleaned_data.get('last_name')
-        user.email = form.cleaned_data.get('email')
-        #This part is because user ain't supposed to login until he confirmed registration through link
-        user.is_active = False
-        user.save()
-        current_site = get_current_site(request)
-        subject = 'Please Activate Your Account'
-            # load a template like get_template()
-            # and calls its render() method immediately.
-        message = render_to_string('blog/activation_request.html', {
-            'user': user,
-            'domain': current_site.domain,
-            'uid': urlsafe_base64_encode(force_bytes(user.pk)),
-            # method will generate a hash value with user related data
-            'token': account_activation_token.make_token(user),
-        })
-        user.email_user(subject, message)
-        #return redirect('activation_sent')
-        return render(request, 'blog/activation_sent.html', {'message': message})
+def user_signup(request):
+    if request.method == 'POST':
+        form = SignUpForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.is_active = False
+            user.save()
+            current_site = get_current_site(request)
+            subject = '''Activate your Bard's Lair Account'''
+            message = render_to_string('blog/activation_request.html', {
+                'user': user,
+                'domain': current_site.domain,
+                'uid': urlsafe_base64_encode(force_bytes(user.pk)),
+                'token': account_activation_token.make_token(user),
+            })
+            user.email_user(subject, message)
+            #return redirect('activation_sent_view')
+            return render(request, 'blog/activation_sent.html')
     else:
         form = SignUpForm()
     return render(request, 'blog/signup.html', {'form': form})
-
-        #username = form.cleaned_data.get('username')
-        #password = form.cleaned_data.get('password1')
-        #user = authenticate(username=username, password=password)
-        #login(request, user)
-        #return redirect('all_blogs')
-    #else:
-    #    form = SignUpForm()
-    #return render(request, 'blog/signup.html', {'form': form})
 
 def activation_sent_view(request):
     return render(request, 'blog/activation_sent.html')
@@ -95,7 +114,7 @@ def activation_sent_view(request):
 
 def activate(request, uidb64, token):
     try:
-        uid = force_text(urlsafe_base64_decode(uidb64))
+        uid = force_str(urlsafe_base64_decode(uidb64))
         user = User.objects.get(pk=uid)
     except (TypeError, ValueError, OverflowError, User.DoesNotExist):
         user = None
@@ -107,6 +126,6 @@ def activate(request, uidb64, token):
         user.profile.signup_confirmation = True
         user.save()
         login(request, user)
-        return redirect('all_blogs')
+        return redirect('home')
     else:
         return render(request, 'blog/activation_invalid.html')

@@ -1,6 +1,21 @@
+{% extends "blog/base_template.html" %} 
+{% block content %}
+
+<div class="container">
+        <div class="row">
+                <div class="col-md card mb-4  mt-3 left  top">
+                        <div class="card-body">
+
 <h2>Login</h2>
 <form method="post">
   {% csrf_token %}
   {{ form.as_p }}
-  <button type="submit">Login</button>
+  <button type="submit" class="btn btn-primary  btn-lg">Login</button>
 </form>
+
+			</div>
+		</div>
+	</div>
+</div>
+
+{% endblock %}
